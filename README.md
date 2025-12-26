@@ -50,7 +50,10 @@ Muitas quests pedem para você jogar ou transmitir um jogo específico por algun
 ## 🔗 Onde Pegar o Script Atualizado?
 
 O script mais famoso e atualizado é esse (de dezembro 2025 ainda funciona em muitas versões):
-```
+<details>
+<summary>🚀 Clique aqui para ver/exibir o código da versão melhorada (e copiar fácil!)</summary>
+
+```javascript
 delete window.$;
 let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, r => r]);
 webpackChunkdiscord_app.pop();
