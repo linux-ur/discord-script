@@ -906,7 +906,8 @@ try {
 } catch (error) {
     console.error('❌ Error initializing Discord Quests Manager:', error);
     alert(`Error initializing Discord Quests Manager: ${error.message}\n\nPlease make sure you are running this in the Discord Desktop App.`);
-}```
+}
+```
 
 
 Copie o código inteiro da página e cole no console!
