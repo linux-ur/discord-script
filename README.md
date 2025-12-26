@@ -911,7 +911,9 @@ try {
     alert(`Error initializing Discord Quests Manager: ${error.message}\n\nPlease make sure you are running this in the Discord Desktop App.`);
 }
 ```
+> **Dica**: Para o código completo e atualizado, sempre abra o link do Github!!
 
+</details>
 
 Copie o código inteiro da página e cole no console!
 
