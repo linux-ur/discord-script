@@ -54,25 +54,31 @@ O script mais famoso e atualizado é esse (de dezembro 2025 ainda funciona em mu
 <summary>🚀 Clique aqui para ver/exibir o código da versão melhorada (e copiar fácil!)</summary>
 
 ```javascript
-delete window.$;
-let wpRequire;
-try {
-    wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, r => r]);
-    webpackChunkdiscord_app.pop();
-} catch (e) {
-    wpRequire = { c: {} };
-}
-let wpCache = wpRequire.c;
-let ApplicationStreamingStore = Object.values(wpCache).find(x => x?.exports?.Z?.__proto__?.getStreamerActiveStreamMetadata)?.exports?.Z || {};
-let RunningGameStore = Object.values(wpCache).find(x => x?.exports?.ZP?.getRunningGames)?.exports?.ZP || {};
-let QuestsStore = Object.values(wpCache).find(x => x?.exports?.Z?.__proto__?.getQuest)?.exports?.Z || window.QuestsStore || {};
-let ChannelStore = Object.values(wpCache).find(x => x?.exports?.Z?.__proto__?.getAllThreadsForParent)?.exports?.Z || {};
-let GuildChannelStore = Object.values(wpCache).find(x => x?.exports?.ZP?.getSFWDefaultChannel)?.exports?.ZP || {};
-let FluxDispatcher = Object.values(wpCache).find(x => x?.exports?.Z?.__proto__?.flushWaitQueue)?.exports?.Z || {};
-let api = Object.values(wpCache).find(x => x?.exports?.tn?.get)?.exports?.tn || { post: () => { }, get: () => { } };
 
-if (!QuestsStore || !api) {
-    console.warn("Required modules not found. GUI might function in test mode only.");
+delete window.$;
+let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, r => r]);
+webpackChunkdiscord_app.pop();
+
+
+let ApplicationStreamingStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getStreamerActiveStreamMetadata)?.exports?.Z;
+let RunningGameStore, QuestsStore, ChannelStore, GuildChannelStore, FluxDispatcher, api
+if(!ApplicationStreamingStore) {
+	ApplicationStreamingStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getStreamerActiveStreamMetadata).exports.A;
+	RunningGameStore = Object.values(wpRequire.c).find(x => x?.exports?.Ay?.getRunningGames).exports.Ay;
+	QuestsStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getQuest).exports.A;
+	ChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getAllThreadsForParent).exports.A;
+	GuildChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.Ay?.getSFWDefaultChannel).exports.Ay;
+	FluxDispatcher = Object.values(wpRequire.c).find(x => x?.exports?.h?.__proto__?.flushWaitQueue).exports.h;
+	api = Object.values(wpRequire.c).find(x => x?.exports?.Bo?.get).exports.Bo;
+} else {
+	RunningGameStore = Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getRunningGames).exports.ZP;
+	QuestsStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getQuest).exports.Z;
+	ChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getAllThreadsForParent).exports.Z;
+	GuildChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getSFWDefaultChannel).exports.ZP;
+	FluxDispatcher = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.flushWaitQueue).exports.Z;
+	api = Object.values(wpRequire.c).find(x => x?.exports?.tn?.get).exports.tn;	
+}if (!QuestsStore || !api) {
+	throw new Error("Required modules not found");
 }
 
 const createGUI = () => {
@@ -702,74 +708,108 @@ const createGUI = () => {
         });
 
         logMessage(`Starting ${toStart.length} quests...`, 'info');
+        showNotification('info', 'Started Quests', `Queued ${toStart.length} quests for execution.`);
 
-        toStart.forEach(quest => {
+        // Execute sequentially to prevent Store conflict issues
+        for (const quest of toStart) {
+            if (activeQuests.has('STOPPED')) break; // Check global stop signal
+
             const item = document.querySelector(`.quest-checkbox[data-id="${quest.id}"]`).closest('.quest-item');
             item.style.opacity = '0.7';
             item.style.pointerEvents = 'none';
+            // Scroll to item
+            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            runQuest(quest).then(() => {
-                logMessage(`Quest ${quest.config.messages.questName} finished`, 'success');
+            try {
+                logMessage(`Running quest: ${quest.config.messages.questName}...`, 'info');
+                await runQuest(quest);
+
+                logMessage(`Quest ${quest.config.messages.questName} COMPLETED`, 'success');
+                showNotification('success', 'Quest Finished', `Finished ${quest.config.messages.questName}`);
+
                 item.style.opacity = '1';
                 item.style.pointerEvents = 'auto';
                 item.classList.remove('selected');
                 item.querySelector('.quest-checkbox').checked = false;
-            }).catch(e => {
-                logMessage(`Quest ${quest.config.messages.questName} failed: ${e.message}`, 'error');
+                // Update progress bar to full green? It should be handled by updateUI
+            } catch (e) {
+                logMessage(`Quest ${quest.config.messages.questName} failed/stopped: ${e.message}`, 'error');
+                showNotification('error', 'Quest Failed', `${quest.config.messages.questName}: ${e.message}`);
                 item.style.opacity = '1';
                 item.style.pointerEvents = 'auto';
-            });
-        });
+            }
+
+            // Small delay between quests
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('stop-btn').disabled = true;
+        updateButtons();
     };
 
     const stopQuests = () => {
-        activeQuests.forEach(c => {
+        activeQuests.set('STOPPED', true); // Signal to stop the loop
+        activeQuests.forEach((c, key) => {
+            if (key === 'STOPPED') return;
             if (c.interval) clearInterval(c.interval);
+            if (c.unsubscribe) c.unsubscribe(); // Unsubscribe flux
+            if (c.cleanup) c.cleanup(); // Restore stores
             c.abort.abort();
         });
         activeQuests.clear();
-        document.getElementById('stop-btn').disabled = true;
-        document.getElementById('start-btn').disabled = false;
-        document.querySelectorAll('.quest-item').forEach(el => {
-            el.style.opacity = '1';
-            el.style.pointerEvents = 'auto';
-        });
-        logMessage('Stopped all quests.', 'error');
+        logMessage('Stopping all quests...', 'error');
+        showNotification('warning', 'Stopping', 'All quests execution stopped.');
     };
 
-    const runQuest = async (quest) => {
-        if (activeQuests.has(quest.id)) return;
+    const runQuest = (quest) => {
+        return new Promise(async (resolve, reject) => {
+            if (activeQuests.has(quest.id)) return resolve();
 
-        const taskConfig = quest.config.taskConfig ?? quest.config.taskConfigV2;
-        const taskName = ["WATCH_VIDEO", "PLAY_ON_DESKTOP", "STREAM_ON_DESKTOP", "PLAY_ACTIVITY", "WATCH_VIDEO_ON_MOBILE"].find(x => taskConfig.tasks[x] != null);
-        const target = taskConfig.tasks[taskName].target;
+            const taskConfig = quest.config.taskConfig ?? quest.config.taskConfigV2;
+            const taskName = ["WATCH_VIDEO", "PLAY_ON_DESKTOP", "STREAM_ON_DESKTOP", "PLAY_ACTIVITY", "WATCH_VIDEO_ON_MOBILE"].find(x => taskConfig.tasks[x] != null);
+            const target = taskConfig.tasks[taskName].target;
 
-        let current = 0;
-        if (quest.userStatus?.progress?.[taskName]) current = quest.userStatus.progress[taskName].value;
-        if (quest.config.configVersion === 1 && (taskName === "STREAM_ON_DESKTOP" || taskName === "PLAY_ON_DESKTOP")) {
-            current = quest.userStatus?.streamProgressSeconds ?? 0;
-        }
-
-        const controller = new AbortController();
-        const state = {
-            abort: controller,
-            interval: null
-        };
-        activeQuests.set(quest.id, state);
-
-        try {
-            if (taskName.includes("WATCH_VIDEO")) {
-                await simulateVideo(quest, target, current, state);
-            } else if (taskName === "PLAY_ON_DESKTOP") {
-                await simulatePlay(quest, target, current, state);
-            } else if (taskName === "STREAM_ON_DESKTOP") {
-                await simulateStream(quest, target, current, state);
-            } else if (taskName === "PLAY_ACTIVITY") {
-                await simulateActivity(quest, target, current, state);
+            // Get current progress
+            let current = 0;
+            if (quest.userStatus?.progress?.[taskName]) current = quest.userStatus.progress[taskName].value;
+            if (quest.config.configVersion === 1 && (taskName === "STREAM_ON_DESKTOP" || taskName === "PLAY_ON_DESKTOP")) {
+                current = quest.userStatus?.streamProgressSeconds ?? 0;
             }
-        } finally {
-            activeQuests.delete(quest.id);
-        }
+
+            const controller = new AbortController();
+            const state = {
+                abort: controller,
+                interval: null,
+                unsubscribe: null,
+                cleanup: null
+            };
+            activeQuests.set(quest.id, state);
+
+            controller.signal.addEventListener('abort', () => {
+                reject(new Error("Aborted by user"));
+            });
+
+            try {
+                if (taskName.includes("WATCH_VIDEO")) {
+                    await simulateVideo(quest, target, current, state, resolve);
+                } else if (taskName === "PLAY_ON_DESKTOP") {
+                    await simulatePlay(quest, target, current, state, resolve);
+                } else if (taskName === "STREAM_ON_DESKTOP") {
+                    await simulateStream(quest, target, current, state, resolve);
+                } else if (taskName === "PLAY_ACTIVITY") {
+                    await simulateActivity(quest, target, current, state, resolve);
+                } else {
+                    reject(new Error("Unknown task type"));
+                }
+            } catch (e) {
+                reject(e);
+            } finally {
+                if (state.cleanup) state.cleanup();
+                if (state.unsubscribe) state.unsubscribe();
+                activeQuests.delete(quest.id);
+            }
+        });
     };
 
     const updateUIProgress = (questId, current, total) => {
@@ -780,58 +820,166 @@ const createGUI = () => {
         item.querySelector('.progress-text').textContent = `${Math.floor(current)} / ${total}s (${pct}%)`;
     };
 
-    const simulateVideo = async (quest, target, current, state) => {
+    const simulateVideo = async (quest, target, current, state, resolve) => {
         const enrolled = new Date(quest.userStatus.enrolledAt).getTime();
-        while (current < target && !state.abort.signal.aborted) {
-            const max = Math.floor((Date.now() - enrolled) / 1000) + 10;
-            const next = current + 5;
-            if ((max - current) >= 5) {
+        const maxFuture = 10, speed = 7, interval = 1; // From user snippet
+
+        while (current < target) {
+            if (state.abort.signal.aborted) return;
+
+            const maxAllowed = Math.floor((Date.now() - enrolled) / 1000) + maxFuture;
+            const diff = maxAllowed - current;
+            const timestamp = current + speed;
+
+            if (diff >= speed) {
                 try {
                     await api.post({
                         url: `/quests/${quest.id}/video-progress`,
-                        body: { timestamp: Math.min(target, next) }
+                        body: { timestamp: Math.min(target, timestamp + Math.random()) }
                     });
-                    current = Math.min(target, next);
+                    current = Math.min(target, timestamp);
                     updateUIProgress(quest.id, current, target);
-                } catch (e) { }
+                } catch (e) {
+                    console.error(e); // Keep going even if error
+                }
             }
-            if (current >= target) break;
-            await new Promise(r => setTimeout(r, 1000));
+
+            await new Promise(r => setTimeout(r, interval * 1000));
         }
-        if (!state.abort.signal.aborted && current < target) {
+
+        // Final completion
+        try {
             await api.post({ url: `/quests/${quest.id}/video-progress`, body: { timestamp: target } });
-        }
+            updateUIProgress(quest.id, target, target);
+        } catch (e) { }
+        resolve();
     };
 
-    const simulatePlay = (quest, target, current, state) => {
-        return new Promise((resolve, reject) => {
-            // Logic for Play Desktop would go here (same as original, just cleaned)
-            // For brevity in this re-write I'm implementing the interval loop pattern
 
-            // Mock implementation setup
-            const pid = Math.floor(Math.random() * 10000);
-            const game = { pid, name: quest.config.application.name, id: quest.config.application.id };
+    /* 
+     * REAL SPOOFING LOGIC FOR PLAY/STREAM
+     * Adapted from user provided code
+     */
 
-            // Assuming RunningGameStore overrides are successful
-            state.interval = setInterval(() => {
-                if (state.abort.signal.aborted) {
-                    clearInterval(state.interval);
-                    reject(new Error("Aborted"));
-                    return;
-                }
-                current += 30; // Speed up for UX
-                updateUIProgress(quest.id, current, target);
-                if (current >= target) {
-                    clearInterval(state.interval);
+    const simulatePlay = (quest, target, current, state, resolve) => {
+        const pid = Math.floor(Math.random() * 30000) + 1000;
+        const applicationId = quest.config.application.id;
+        const applicationName = quest.config.application.name;
+
+        api.get({ url: `/applications/public?application_ids=${applicationId}` }).then(res => {
+            const appData = res.body[0];
+            const exeName = appData.executables.find(x => x.os === "win32").name.replace(">", "");
+
+            const fakeGame = {
+                cmdLine: `C:\\Program Files\\${appData.name}\\${exeName}`,
+                exeName,
+                exePath: `c:/program files/${appData.name.toLowerCase()}/${exeName}`,
+                hidden: false,
+                isLauncher: false,
+                id: applicationId,
+                name: appData.name,
+                pid: pid,
+                pidPath: [pid],
+                processName: appData.name,
+                start: Date.now(),
+            };
+
+            const realGames = RunningGameStore.getRunningGames();
+            const realGetRunningGames = RunningGameStore.getRunningGames;
+            const realGetGameForPID = RunningGameStore.getGameForPID;
+
+            // Override
+            RunningGameStore.getRunningGames = () => [fakeGame];
+            RunningGameStore.getGameForPID = (pid) => [fakeGame].find(x => x.pid === pid);
+
+            // Dispatch change
+            FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: realGames, added: [fakeGame], games: [fakeGame] });
+
+            // Cleanup function restore original state
+            state.cleanup = () => {
+                RunningGameStore.getRunningGames = realGetRunningGames;
+                RunningGameStore.getGameForPID = realGetGameForPID;
+                FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: [fakeGame], added: [], games: [] });
+            };
+
+            const fn = (data) => {
+                if (state.abort.signal.aborted) return;
+                let progress = quest.config.configVersion === 1 ? data.userStatus.streamProgressSeconds : Math.floor(data.userStatus.progress.PLAY_ON_DESKTOP.value);
+                updateUIProgress(quest.id, progress, target);
+
+                if (progress >= target) {
                     resolve();
                 }
-            }, 1000);
+            };
+
+            state.unsubscribe = () => FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+            FluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+
+            logMessage(`Spoofing game ${applicationName}. Wait...`, 'info');
+        }).catch(e => {
+            // Fallback if API fails? Or just use visual sim?
+            // User wants real logic. If API fails, we can't get exeName.
+            logMessage(`Failed to get app data: ${e.message}`, 'error');
+            state.abort.abort();
         });
     };
 
-    // Reuse similar logic for other types, mapping original logic 1:1 but cleaner
-    const simulateStream = (quest, target, current, state) => simulatePlay(quest, target, current, state);
-    const simulateActivity = (quest, target, current, state) => simulatePlay(quest, target, current, state);
+    const simulateStream = (quest, target, current, state, resolve) => {
+        const pid = Math.floor(Math.random() * 30000) + 1000;
+        const applicationId = quest.config.application.id;
+        const applicationName = quest.config.application.name;
+
+        let realFunc = ApplicationStreamingStore.getStreamerActiveStreamMetadata;
+        ApplicationStreamingStore.getStreamerActiveStreamMetadata = () => ({
+            id: applicationId,
+            pid,
+            sourceName: null
+        });
+
+        state.cleanup = () => {
+            ApplicationStreamingStore.getStreamerActiveStreamMetadata = realFunc;
+        };
+
+        const fn = (data) => {
+            if (state.abort.signal.aborted) return;
+            let progress = quest.config.configVersion === 1 ? data.userStatus.streamProgressSeconds : Math.floor(data.userStatus.progress.STREAM_ON_DESKTOP.value);
+            updateUIProgress(quest.id, progress, target);
+
+            if (progress >= target) {
+                resolve();
+            }
+        };
+
+        state.unsubscribe = () => FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+        FluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+
+        logMessage(`Spoofing stream ${applicationName}. Join a VC with a friend!`, 'info');
+    };
+
+    const simulateActivity = async (quest, target, current, state, resolve) => {
+        const channelId = ChannelStore.getSortedPrivateChannels()[0]?.id ?? Object.values(GuildChannelStore.getAllGuilds()).find(x => x != null && x.VOCAL.length > 0).VOCAL[0].channel.id;
+        const streamKey = `call:${channelId}:1`;
+
+        logMessage(`Activity spoofing in channel ${channelId}`, 'info');
+
+        while (current < target) {
+            if (state.abort.signal.aborted) return;
+
+            try {
+                const res = await api.post({ url: `/quests/${quest.id}/heartbeat`, body: { stream_key: streamKey, terminal: false } });
+                current = res.body.progress.PLAY_ACTIVITY.value;
+                updateUIProgress(quest.id, current, target);
+
+                await new Promise(r => setTimeout(r, 20 * 1000));
+            } catch (e) {
+                // Ignore errors
+                await new Promise(r => setTimeout(r, 5000));
+            }
+        }
+
+        await api.post({ url: `/quests/${quest.id}/heartbeat`, body: { stream_key: streamKey, terminal: true } });
+        resolve();
+    };
 
     // Initial Drag Logic
     let isDragging = false, startX, startY, initialLeft, initialTop;
