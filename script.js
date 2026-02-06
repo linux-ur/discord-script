@@ -1,22 +1,28 @@
-delete window.$;
-let wpRequire;
-try {
-    wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, r => r]);
-    webpackChunkdiscord_app.pop();
-} catch (e) {
-    wpRequire = { c: {} };
-}
-let wpCache = wpRequire.c;
-let ApplicationStreamingStore = Object.values(wpCache).find(x => x?.exports?.Z?.__proto__?.getStreamerActiveStreamMetadata)?.exports?.Z || {};
-let RunningGameStore = Object.values(wpCache).find(x => x?.exports?.ZP?.getRunningGames)?.exports?.ZP || {};
-let QuestsStore = Object.values(wpCache).find(x => x?.exports?.Z?.__proto__?.getQuest)?.exports?.Z || window.QuestsStore || {};
-let ChannelStore = Object.values(wpCache).find(x => x?.exports?.Z?.__proto__?.getAllThreadsForParent)?.exports?.Z || {};
-let GuildChannelStore = Object.values(wpCache).find(x => x?.exports?.ZP?.getSFWDefaultChannel)?.exports?.ZP || {};
-let FluxDispatcher = Object.values(wpCache).find(x => x?.exports?.Z?.__proto__?.flushWaitQueue)?.exports?.Z || {};
-let api = Object.values(wpCache).find(x => x?.exports?.tn?.get)?.exports?.tn || { post: () => { }, get: () => { } };
 
-if (!QuestsStore || !api) {
-    console.warn("Required modules not found. GUI might function in test mode only.");
+delete window.$;
+let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, r => r]);
+webpackChunkdiscord_app.pop();
+
+
+let ApplicationStreamingStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getStreamerActiveStreamMetadata)?.exports?.Z;
+let RunningGameStore, QuestsStore, ChannelStore, GuildChannelStore, FluxDispatcher, api
+if(!ApplicationStreamingStore) {
+	ApplicationStreamingStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getStreamerActiveStreamMetadata).exports.A;
+	RunningGameStore = Object.values(wpRequire.c).find(x => x?.exports?.Ay?.getRunningGames).exports.Ay;
+	QuestsStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getQuest).exports.A;
+	ChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getAllThreadsForParent).exports.A;
+	GuildChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.Ay?.getSFWDefaultChannel).exports.Ay;
+	FluxDispatcher = Object.values(wpRequire.c).find(x => x?.exports?.h?.__proto__?.flushWaitQueue).exports.h;
+	api = Object.values(wpRequire.c).find(x => x?.exports?.Bo?.get).exports.Bo;
+} else {
+	RunningGameStore = Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getRunningGames).exports.ZP;
+	QuestsStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getQuest).exports.Z;
+	ChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.getAllThreadsForParent).exports.Z;
+	GuildChannelStore = Object.values(wpRequire.c).find(x => x?.exports?.ZP?.getSFWDefaultChannel).exports.ZP;
+	FluxDispatcher = Object.values(wpRequire.c).find(x => x?.exports?.Z?.__proto__?.flushWaitQueue).exports.Z;
+	api = Object.values(wpRequire.c).find(x => x?.exports?.tn?.get).exports.tn;	
+}if (!QuestsStore || !api) {
+	throw new Error("Required modules not found");
 }
 
 const createGUI = () => {
