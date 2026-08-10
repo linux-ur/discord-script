@@ -1882,6 +1882,5 @@ const createGUI = () => {
 
     loadQuests();
 };
-
 createGUI();
 })();
