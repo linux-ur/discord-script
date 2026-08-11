@@ -66,7 +66,7 @@ const findHTTPClient = () => {
 
 const ApplicationStreamingStore = getModule(x => typeof x.getStreamerActiveStreamMetadata === "function")
     ?? Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getStreamerActiveStreamMetadata)?.exports?.A;
-const RunningGameStore = getModule(x => typeof x.getRunningGames === "function")// by https://github.com/linux-ur/
+const RunningGameStore = getModule(x => typeof x.getRunningGames === "function")
     ?? Object.values(wpRequire.c).find(x => x?.exports?.Ay?.getRunningGames)?.exports?.Ay;
 const QuestsStore = getModule(x => typeof x.getQuest === "function" && x.quests instanceof Map)
     ?? Object.values(wpRequire.c).find(x => x?.exports?.A?.__proto__?.getQuest)?.exports?.A;
@@ -252,7 +252,7 @@ const createGUI = () => {
         const val = locales[currentLang][key];
         if (typeof val === 'function') return val(...args);
         return val;
-    };// by https://github.com/linux-ur/
+    };
 
     const styles = `
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
