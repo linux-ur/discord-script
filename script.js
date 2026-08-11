@@ -1875,7 +1875,7 @@ const createGUI = () => {
                         setTimeout(showLanguageSelectionDialog, 800);
                     }
                 };
-// by https://github.com/linux-ur/
+
                 checkLanguageAndStart();
 
             }, 500);
